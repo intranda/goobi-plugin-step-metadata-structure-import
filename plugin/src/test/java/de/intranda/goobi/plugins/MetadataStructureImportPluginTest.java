@@ -43,7 +43,7 @@ import ugh.fileformats.mets.MetsMods;
 @PrepareForTest({ MetadatenHelper.class, VariableReplacer.class, ConfigurationHelper.class, ProcessManager.class,
         MetadataManager.class })
 @PowerMockIgnore({ "javax.management.*", "javax.xml.*", "org.xml.*", "org.w3c.*", "javax.net.ssl.*", "jdk.internal.reflect.*" })
-public class SamplePluginTest {
+public class MetadataStructureImportPluginTest {
 
     private static String resourcesFolder;
 
@@ -71,13 +71,13 @@ public class SamplePluginTest {
 
     @Test
     public void testConstructor() throws Exception {
-        SampleStepPlugin plugin = new SampleStepPlugin();
+        MetadataStructureImportStepPlugin plugin = new MetadataStructureImportStepPlugin();
         assertNotNull(plugin);
     }
 
     @Test
     public void testInit() {
-        SampleStepPlugin plugin = new SampleStepPlugin();
+        MetadataStructureImportStepPlugin plugin = new MetadataStructureImportStepPlugin();
         plugin.initialize(step, "something");
         assertEquals(step.getTitel(), plugin.getStep().getTitel());
     }
@@ -97,10 +97,6 @@ public class SamplePluginTest {
         Path metaSource = Paths.get(resourcesFolder, "meta.xml");
         Path metaTarget = Paths.get(processDirectory.getAbsolutePath(), "meta.xml");
         Files.copy(metaSource, metaTarget);
-
-        Path anchorSource = Paths.get(resourcesFolder, "meta_anchor.xml");
-        Path anchorTarget = Paths.get(processDirectory.getAbsolutePath(), "meta_anchor.xml");
-        Files.copy(anchorSource, anchorTarget);
 
         PowerMock.mockStatic(ConfigurationHelper.class);
         ConfigurationHelper configurationHelper = EasyMock.createMock(ConfigurationHelper.class);

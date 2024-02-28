@@ -36,41 +36,60 @@ import net.xeoh.plugins.base.annotations.PluginImplementation;
 
 @PluginImplementation
 @Log4j2
-public class SampleStepPlugin implements IStepPluginVersion2 {
-    
+public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
+
+    private static final long serialVersionUID = -2724211643330484400L;
+
     @Getter
-    private String title = "intranda_step_sample";
+    private String title = "intranda_step_MetadataStructureImport";
     @Getter
     private Step step;
-    @Getter
-    private String value;
-    @Getter 
-    private boolean allowTaskFinishButtons;
-    private String returnPath;
 
     @Override
     public void initialize(Step step, String returnPath) {
-        this.returnPath = returnPath;
         this.step = step;
-                
-        // read parameters from correct block in configuration file
+
+        // load configuration
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
-        value = myconfig.getString("value", "default value"); 
-        allowTaskFinishButtons = myconfig.getBoolean("allowTaskFinishButtons", false);
-        log.info("Sample step plugin initialized");
+    }
+
+    @Override
+    public PluginReturnValue run() {
+        // find excel file
+
+        // open excel file
+
+        // open metadata file
+
+        // clear metadata file, remove existing structure elements
+
+        // for each line in excel file:
+
+        // generate structure element
+        // parent element is the last element with smaller hierarchy level (or the root element)
+        // add metadata from configured columns
+        // create page assignments based on excel data
+        // opac request if configured and identifier is known
+        // excel data has higher priority than opac data
+
+        boolean successful = true;
+        // your logic goes here
+
+        log.info("MetadataStructureImport step plugin executed");
+        if (!successful) {
+            return PluginReturnValue.ERROR;
+        }
+        return PluginReturnValue.FINISH;
     }
 
     @Override
     public PluginGuiType getPluginGuiType() {
-        return PluginGuiType.FULL;
-        // return PluginGuiType.PART;
-        // return PluginGuiType.PART_AND_FULL;
-        // return PluginGuiType.NONE;
+        return PluginGuiType.NONE;
     }
 
     @Override
     public String getPagePath() {
-        return "/uii/plugin_step_sample.xhtml";
+        return "/uii/plugin_step_MetadataStructureImport.xhtml";
     }
 
     @Override
@@ -80,14 +99,14 @@ public class SampleStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public String cancel() {
-        return "/uii" + returnPath;
+        return "";
     }
 
     @Override
     public String finish() {
-        return "/uii" + returnPath;
+        return "";
     }
-    
+
     @Override
     public int getInterfaceVersion() {
         return 0;
@@ -95,24 +114,13 @@ public class SampleStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public HashMap<String, StepReturnValue> validate() {
-        return null;
+        return null; //NOSONAR
     }
-    
+
     @Override
     public boolean execute() {
         PluginReturnValue ret = run();
         return ret != PluginReturnValue.ERROR;
     }
 
-    @Override
-    public PluginReturnValue run() {
-        boolean successful = true;
-        // your logic goes here
-        
-        log.info("Sample step plugin executed");
-        if (!successful) {
-            return PluginReturnValue.ERROR;
-        }
-        return PluginReturnValue.FINISH;
-    }
 }
