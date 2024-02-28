@@ -12,10 +12,11 @@
         <project>*</project>
         <step>*</step>
         
-        <!-- sample parameter -->
-        <value>test</value>
-        <!-- display button to finish the task directly from within the entered plugin -->
-        <allowTaskFinishButtons>true</allowTaskFinishButtons>
+
+<!-- Can be an absolute path or composed with variables  -->
+        <excelFolder>{processpath}</excelFolder>
+
+
     </config>
 
 </config_plugin>

@@ -1,5 +1,9 @@
 package de.intranda.goobi.plugins;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
  *
@@ -20,8 +24,10 @@ package de.intranda.goobi.plugins;
  */
 
 import java.util.HashMap;
+import java.util.List;
 
 import org.apache.commons.configuration.SubnodeConfiguration;
+import org.goobi.beans.Process;
 import org.goobi.beans.Step;
 import org.goobi.production.enums.PluginGuiType;
 import org.goobi.production.enums.PluginReturnValue;
@@ -30,9 +36,16 @@ import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
 
 import de.sub.goobi.config.ConfigPlugins;
+import de.sub.goobi.helper.StorageProvider;
+import de.sub.goobi.helper.VariableReplacer;
+import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.dl.DigitalDocument;
+import ugh.dl.DocStruct;
+import ugh.dl.Fileformat;
+import ugh.exceptions.UGHException;
 
 @PluginImplementation
 @Log4j2
@@ -45,21 +58,65 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
     @Getter
     private Step step;
 
+    private Process process;
+
+    private String excelFolder;
+
     @Override
     public void initialize(Step step, String returnPath) {
         this.step = step;
-
+        process = step.getProzess();
         // load configuration
-        SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
+        SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
+
+        excelFolder = config.getString("/excelFolder");
+
     }
 
     @Override
     public PluginReturnValue run() {
-        // find excel file
+        // open metadata file
+
+        Fileformat fileformat = null;
+        DigitalDocument digDoc = null;
+        try {
+            fileformat = process.readMetadataFile();
+            digDoc = fileformat.getDigitalDocument();
+        } catch (UGHException | IOException | SwapException e) {
+            log.error(e);
+            // cannot read metadata file, abort.
+            return PluginReturnValue.ERROR;
+
+        }
+        DocStruct logical = digDoc.getLogicalDocStruct();
+        DocStruct physical = digDoc.getPhysicalDocStruct();
+
+        VariableReplacer replacer = new VariableReplacer(digDoc, process.getRegelsatz().getPreferences(), process, step);
+
+        // find excel file in configured folder
+        Path excelFile = null;
+        Path path = Paths.get(replacer.replace(excelFolder));
+        if (!StorageProvider.getInstance().isDirectory(path)) {
+            // excel folder not found, abort
+            return PluginReturnValue.ERROR;
+        }
+
+        List<Path> dataInFolder = StorageProvider.getInstance().listFiles(path.toString());
+        for (Path p : dataInFolder) {
+            if (p.getFileName().toString().endsWith("xlsx")) {
+                excelFile = p;
+            }
+        }
+        if (excelFile == null) {
+            // excel file not found, abort
+            return PluginReturnValue.ERROR;
+        }
 
         // open excel file
 
-        // open metadata file
+        // find header row
+
+        // find first data row
 
         // clear metadata file, remove existing structure elements
 

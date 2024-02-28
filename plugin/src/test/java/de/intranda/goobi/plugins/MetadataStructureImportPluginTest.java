@@ -11,13 +11,18 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.easymock.EasyMock;
+import org.easymock.IAnswer;
 import org.goobi.beans.Process;
 import org.goobi.beans.Project;
 import org.goobi.beans.Ruleset;
 import org.goobi.beans.Step;
 import org.goobi.beans.User;
+import org.goobi.production.enums.PluginReturnValue;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -83,9 +88,10 @@ public class MetadataStructureImportPluginTest {
     }
 
     @Test
-    public void testVersion() throws IOException {
-        String s = "xyz";
-        assertNotNull(s);
+    public void testRun() throws IOException {
+        MetadataStructureImportStepPlugin plugin = new MetadataStructureImportStepPlugin();
+        plugin.initialize(step, "something");
+        assertEquals(PluginReturnValue.FINISH, plugin.run());
     }
 
     @Before
@@ -97,6 +103,10 @@ public class MetadataStructureImportPluginTest {
         Path metaSource = Paths.get(resourcesFolder, "meta.xml");
         Path metaTarget = Paths.get(processDirectory.getAbsolutePath(), "meta.xml");
         Files.copy(metaSource, metaTarget);
+
+        Path excelSource = Paths.get(resourcesFolder, "20231002_ImportStrukturdatenBsp.xlsx");
+        Path excelTarget = Paths.get(processDirectory.getAbsolutePath(), "20231002_ImportStrukturdatenBsp.xlsx");
+        Files.copy(excelSource, excelTarget);
 
         PowerMock.mockStatic(ConfigurationHelper.class);
         ConfigurationHelper configurationHelper = EasyMock.createMock(ConfigurationHelper.class);
@@ -112,13 +122,51 @@ public class MetadataStructureImportPluginTest {
         EasyMock.expect(configurationHelper.isUseMasterDirectory()).andReturn(true).anyTimes();
         EasyMock.expect(configurationHelper.getConfigurationFolder()).andReturn(resourcesFolder).anyTimes();
         EasyMock.expect(configurationHelper.getNumberOfMetaBackups()).andReturn(0).anyTimes();
+        EasyMock.expect(configurationHelper.getGoobiFolder()).andReturn(metadataDirectory.toString()).anyTimes();
+        EasyMock.expect(configurationHelper.getScriptsFolder()).andReturn(metadataDirectory.toString()).anyTimes();
+
         EasyMock.replay(configurationHelper);
 
         PowerMock.mockStatic(VariableReplacer.class);
-        EasyMock.expect(VariableReplacer.simpleReplace(EasyMock.anyString(), EasyMock.anyObject())).andReturn("00469418X_media").anyTimes();
+        EasyMock.expect(VariableReplacer.simpleReplace(EasyMock.anyString(), EasyMock.anyObject()))
+                .andAnswer(
+                        new IAnswer<String>() {
+                            @Override
+                            public String answer() throws Throwable {
+                                String searchString = (String) EasyMock.getCurrentArguments()[0];
+                                if (searchString.contains("{processtitle}")) {
+                                    return "00469418X_media";
+                                } else {
+                                    return searchString;
+                                }
+
+                            }
+                        }
+
+                )
+                .anyTimes();
+
+        EasyMock.expect(VariableReplacer.findRegexMatches(EasyMock.anyString(), EasyMock.anyString()))
+                .andAnswer(
+                        new IAnswer<List<MatchResult>>() {
+                            @Override
+                            public List<MatchResult> answer() throws Throwable {
+                                List<MatchResult> results = new ArrayList<>();
+                                String pattern = (String) EasyMock.getCurrentArguments()[0];
+                                String value = (String) EasyMock.getCurrentArguments()[1];
+                                for (Matcher m = Pattern.compile(pattern).matcher(value); m.find();) {
+                                    results.add(m.toMatchResult());
+                                }
+                                return results;
+                            }
+
+                        })
+                .anyTimes();
+
         PowerMock.replay(VariableReplacer.class);
         prefs = new Prefs();
         prefs.loadPrefs(resourcesFolder + "ruleset.xml");
+
         Fileformat ff = new MetsMods(prefs);
         ff.read(metaTarget.toString());
 
@@ -136,9 +184,12 @@ public class MetadataStructureImportPluginTest {
         PowerMock.replay(MetadataManager.class);
         PowerMock.replay(ConfigurationHelper.class);
 
-        process = getProcess();
+        process =
 
-        Ruleset ruleset = PowerMock.createMock(Ruleset.class);
+                getProcess();
+
+        Ruleset ruleset = PowerMock.createMock(
+                Ruleset.class);
         ruleset.setTitel("ruleset");
         ruleset.setDatei("ruleset.xml");
         EasyMock.expect(ruleset.getDatei()).andReturn("ruleset.xml").anyTimes();
