@@ -340,7 +340,7 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                 value = cell.getRichStringCellValue().getString();
                 break;
             case NUMERIC:
-                value = String.valueOf(cell.getNumericCellValue());
+                value = String.valueOf((long) cell.getNumericCellValue());
                 break;
             case STRING:
                 value = cell.getStringCellValue();
