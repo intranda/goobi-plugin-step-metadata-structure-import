@@ -58,7 +58,10 @@ import net.xeoh.plugins.base.annotations.PluginImplementation;
 import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
+import ugh.dl.Prefs;
+import ugh.exceptions.PreferencesException;
 import ugh.exceptions.UGHException;
+import ugh.exceptions.WriteException;
 
 @PluginImplementation
 @Log4j2
@@ -73,6 +76,8 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
 
     private Process process;
 
+    private Prefs prefs;
+
     private String excelFolder;
 
     private int headerRowNumber;
@@ -86,10 +91,14 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
     private String imageStartColumnName;
     private String imageEndColumnName;
 
+    private Map<String, String> docstructs;
+
     @Override
     public void initialize(Step step, String returnPath) {
         this.step = step;
         process = step.getProzess();
+        prefs = process.getRegelsatz().getPreferences();
+
         // load configuration
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
 
@@ -106,6 +115,12 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
             col.setColumnName(hc.getString("@columnName"));
             col.setMetadataName(hc.getString("@metadata", ""));
             columns.add(col);
+        }
+
+        docstructs = new HashMap<>();
+        hcl = config.configurationsAt("/docstruct");
+        for (HierarchicalConfiguration hc : hcl) {
+            docstructs.put(hc.getString("@label"), hc.getString("@value"));
         }
 
         identifierColumnName = config.getString("/identifierColumnName");
@@ -249,16 +264,36 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                 }
 
                 String docType = getCellValue(row, headerOrder.get(doctypeColumnName));
+                int hierarchy = Integer.parseInt(getCellValue(row, headerOrder.get(hierarchyColumnName)));
 
                 String identifier = getCellValue(row, headerOrder.get(identifierColumnName));
 
-                int hierarchy = Integer.parseInt(getCellValue(row, headerOrder.get(hierarchyColumnName)));
+                int startPageNo = Integer.parseInt(getCellValue(row, headerOrder.get(imageStartColumnName)));
+                int endPageNo = Integer.parseInt(getCellValue(row, headerOrder.get(imageEndColumnName)));
 
-                DocStruct currentType = null;
+                DocStruct currentDocStruct = digDoc.createDocStruct(prefs.getDocStrctTypeByName(docstructs.get(docType)));
 
-                // TODO find correct position
-                // if current element hierarchy is higher than last element, its a child element
-                // if it has the same number, its a sibling
+                // skip first element as it is the publication type itself
+                if (hierarchy != 0) {
+
+                    // if current element hierarchy is higher than last element, its a child element of the last element
+                    if (hierarchy > lastHierarchy) {
+                        lastElement.addChild(currentDocStruct);
+                    }
+                    // if it has the same number, its a sibling, add it as child element of the parent
+                    else if (hierarchy == lastHierarchy) {
+                        lastElement.getParent().addChild(currentDocStruct);
+                    } else {
+                        while (hierarchy < lastHierarchy) {
+                            lastElement = lastElement.getParent();
+                            lastHierarchy--;
+                        }
+                        lastElement.getParent().addChild(currentDocStruct);
+                    }
+
+                    lastElement = currentDocStruct;
+                    lastHierarchy = hierarchy;
+                }
                 // if it is smaller, go upwards to find the right parent element, insert as last
 
                 // TODO get opac record for identifier
@@ -270,21 +305,20 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                 for (Column col : columns) {
                     int colId = headerOrder.get(col.getColumnName());
                     String colVal = getCellValue(row, colId);
-
+                    System.out.println(col.getColumnName() + ": " + colVal);
                 }
             }
 
-        } catch (IOException e) {
+        } catch (IOException | UGHException e) {
             log.error(e);
         }
 
-        boolean successful = true;
-        // your logic goes here
-
-        log.info("MetadataStructureImport step plugin executed");
-        if (!successful) {
-            return PluginReturnValue.ERROR;
+        try {
+            process.writeMetadataFile(fileformat);
+        } catch (WriteException | PreferencesException | IOException | SwapException e) {
+            log.error(e);
         }
+
         return PluginReturnValue.FINISH;
     }
 

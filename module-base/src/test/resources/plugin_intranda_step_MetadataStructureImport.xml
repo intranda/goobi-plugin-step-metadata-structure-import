@@ -18,7 +18,7 @@
         <!-- define if a catalogue shall get requested to import metadata -->
         <useOpac>true</useOpac>
         <!-- which catalogue to use (as default) -->
-        <opacName>GBV PICA</opacName>
+        <opacName>Kalliope</opacName>
         <!-- which catalogue to use per record; if missing the default will be used -->
         <searchField>12</searchField>
 
@@ -40,6 +40,10 @@
         <column columnName="Haupttitel" type="metadata" metadata="TitleDocMain" />
         <column columnName="Kalliope-ID" type="metadata" metadata="CatalogIDDigital" />
 
-    </config>
 
+        <docstruct label="Handschrift" value="Monograph"/>
+        <docstruct label="Abschnitt (Kalliope)" value="Section_Kalliope"/>
+
+
+    </config>
 </config_plugin>

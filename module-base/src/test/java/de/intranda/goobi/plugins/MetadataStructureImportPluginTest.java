@@ -92,6 +92,7 @@ public class MetadataStructureImportPluginTest {
         MetadataStructureImportStepPlugin plugin = new MetadataStructureImportStepPlugin();
         plugin.initialize(step, "something");
         assertEquals(PluginReturnValue.FINISH, plugin.run());
+        // TODO open meta.xml, check structure
     }
 
     @Before
@@ -139,11 +140,8 @@ public class MetadataStructureImportPluginTest {
                                 } else {
                                     return searchString;
                                 }
-
                             }
-                        }
-
-                )
+                        })
                 .anyTimes();
 
         EasyMock.expect(VariableReplacer.findRegexMatches(EasyMock.anyString(), EasyMock.anyString()))
