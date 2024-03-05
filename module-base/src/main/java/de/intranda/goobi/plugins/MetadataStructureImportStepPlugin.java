@@ -1,8 +1,10 @@
 package de.intranda.goobi.plugins;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
@@ -24,9 +26,20 @@ import java.nio.file.Paths;
  */
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
+import org.apache.commons.io.ByteOrderMark;
+import org.apache.commons.io.input.BOMInputStream;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.goobi.beans.Process;
 import org.goobi.beans.Step;
 import org.goobi.production.enums.PluginGuiType;
@@ -62,6 +75,17 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
 
     private String excelFolder;
 
+    private int headerRowNumber;
+    private int dataRowNumber;
+    private int lastDataRow;
+    private transient List<Column> columns;
+
+    private String identifierColumnName;
+    private String doctypeColumnName;
+    private String hierarchyColumnName;
+    private String imageStartColumnName;
+    private String imageEndColumnName;
+
     @Override
     public void initialize(Step step, String returnPath) {
         this.step = step;
@@ -71,6 +95,24 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
 
         excelFolder = config.getString("/excelFolder");
 
+        headerRowNumber = config.getInt("/rowHeader", 1);
+        dataRowNumber = config.getInt("/rowDataStart", 2);
+        lastDataRow = config.getInt("/rowDataEnd", 99999);
+        columns = new ArrayList<>();
+
+        List<HierarchicalConfiguration> hcl = config.configurationsAt("/column");
+        for (HierarchicalConfiguration hc : hcl) {
+            Column col = new Column();
+            col.setColumnName(hc.getString("@columnName"));
+            col.setMetadataName(hc.getString("@metadata", ""));
+            columns.add(col);
+        }
+
+        identifierColumnName = config.getString("/identifierColumnName");
+        doctypeColumnName = config.getString("/doctypeColumnName");
+        hierarchyColumnName = config.getString("/hierarchyColumnName");
+        imageStartColumnName = config.getString("/imageStartColumnName");
+        imageEndColumnName = config.getString("/imageEndColumnName");
     }
 
     @Override
@@ -93,6 +135,20 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
 
         VariableReplacer replacer = new VariableReplacer(digDoc, process.getRegelsatz().getPreferences(), process, step);
 
+        // clear metadata file, remove existing structure elements
+
+        List<DocStruct> children = logical.getAllChildren();
+        if (children != null) {
+            for (DocStruct child : children) {
+                logical.removeChild(child);
+            }
+        }
+
+        // TODO if physical is empty, generate pagination
+        if (physical.getAllChildren() == null) {
+
+        }
+
         // find excel file in configured folder
         Path excelFile = null;
         Path path = Paths.get(replacer.replace(excelFolder));
@@ -112,22 +168,115 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
             return PluginReturnValue.ERROR;
         }
 
+        Map<String, Integer> headerOrder = new HashMap<>();
+
         // open excel file
+        try (InputStream fileInputStream = StorageProvider.getInstance().newInputStream(excelFile);
+                BOMInputStream in = BOMInputStream.builder()
+                        .setPath(excelFile)
+                        .setByteOrderMarks(ByteOrderMark.UTF_8)
+                        .setInclude(false)
+                        .get();
+                Workbook wb = WorkbookFactory.create(in)) {
+            Sheet sheet = wb.getSheetAt(0);
+            Iterator<Row> rowIterator = sheet.rowIterator();
 
-        // find header row
+            int rowCounter = 0;
 
-        // find first data row
+            //  find the header row
+            Row headerRow = null;
+            while (rowCounter < headerRowNumber) {
+                headerRow = rowIterator.next();
+                rowCounter++;
+            }
 
-        // clear metadata file, remove existing structure elements
+            //  read and validate the header row
+            int numberOfCells = headerRow.getLastCellNum();
+            for (int i = 0; i < numberOfCells; i++) {
+                Cell cell = headerRow.getCell(i);
+                if (cell != null) {
+                    String value = null;
+                    switch (cell.getCellType()) {
+                        case BOOLEAN:
+                            value = String.valueOf(cell.getBooleanCellValue());
+                            break;
+                        case FORMULA:
+                            value = cell.getCellFormula();
+                            break;
+                        case NUMERIC:
+                            value = String.valueOf(cell.getNumericCellValue());
+                            break;
+                        case STRING:
+                            value = cell.getStringCellValue();
+                            break;
+                        case ERROR:
+                        case BLANK:
+                        case _NONE:
+                        default:
+                            value = "";
+                            break;
+                    }
+                    headerOrder.put(value, i);
+                }
+            }
 
-        // for each line in excel file:
+            // find out the first data row
+            while (rowCounter < dataRowNumber - 1) {
+                headerRow = rowIterator.next();
+                rowCounter++;
+            }
 
-        // generate structure element
-        // parent element is the last element with smaller hierarchy level (or the root element)
-        // add metadata from configured columns
-        // create page assignments based on excel data
-        // opac request if configured and identifier is known
-        // excel data has higher priority than opac data
+            DocStruct lastElement = logical;
+            int lastHierarchy = 0;
+
+            // run through all the data rows
+            while (rowIterator.hasNext() && rowCounter < lastDataRow) {
+
+                // for each line in excel file:
+
+                // generate structure element
+                // parent element is the last element with smaller hierarchy level (or the root element)
+                // add metadata from configured columns
+                // create page assignments based on excel data
+                // opac request if configured and identifier is known
+                // excel data has higher priority than opac data
+
+                Row row = rowIterator.next();
+                rowCounter++;
+                int lastColumn = row.getLastCellNum();
+                if (lastColumn == -1) {
+                    continue;
+                }
+
+                String docType = getCellValue(row, headerOrder.get(doctypeColumnName));
+
+                String identifier = getCellValue(row, headerOrder.get(identifierColumnName));
+
+                int hierarchy = Integer.parseInt(getCellValue(row, headerOrder.get(hierarchyColumnName)));
+
+                DocStruct currentType = null;
+
+                // TODO find correct position
+                // if current element hierarchy is higher than last element, its a child element
+                // if it has the same number, its a sibling
+                // if it is smaller, go upwards to find the right parent element, insert as last
+
+                // TODO get opac record for identifier
+
+                // copy metadata to the new docstruct
+
+                // TODO get additional metadata from excel document
+                // overwrite/insert new metadata
+                for (Column col : columns) {
+                    int colId = headerOrder.get(col.getColumnName());
+                    String colVal = getCellValue(row, colId);
+
+                }
+            }
+
+        } catch (IOException e) {
+            log.error(e);
+        }
 
         boolean successful = true;
         // your logic goes here
@@ -178,6 +327,30 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
     public boolean execute() {
         PluginReturnValue ret = run();
         return ret != PluginReturnValue.ERROR;
+    }
+
+    public String getCellValue(Row row, int columnIndex) {
+        Cell cell = row.getCell(columnIndex, MissingCellPolicy.CREATE_NULL_AS_BLANK);
+        String value = "";
+        switch (cell.getCellType()) {
+            case BOOLEAN:
+                value = String.valueOf(cell.getBooleanCellValue());
+                break;
+            case FORMULA:
+                value = cell.getRichStringCellValue().getString();
+                break;
+            case NUMERIC:
+                value = String.valueOf((long) cell.getNumericCellValue());
+                break;
+            case STRING:
+                value = cell.getStringCellValue();
+                break;
+            default:
+                // none, error, blank
+                value = "";
+                break;
+        }
+        return value;
     }
 
 }
