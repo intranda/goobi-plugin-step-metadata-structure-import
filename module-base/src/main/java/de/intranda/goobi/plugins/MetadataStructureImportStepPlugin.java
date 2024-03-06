@@ -34,6 +34,7 @@ import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
@@ -97,6 +98,9 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
     private String imageStartColumnName;
     private String imageEndColumnName;
 
+    private String opacName;
+    private String opacSearchField;
+
     private Map<String, String> docstructs;
 
     @Override
@@ -134,6 +138,9 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
         hierarchyColumnName = config.getString("/hierarchyColumnName");
         imageStartColumnName = config.getString("/imageStartColumnName");
         imageEndColumnName = config.getString("/imageEndColumnName");
+
+        opacName = config.getString("/opacName");
+        opacSearchField = config.getString("/searchField");
     }
 
     @Override
@@ -157,16 +164,16 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
         VariableReplacer replacer = new VariableReplacer(digDoc, process.getRegelsatz().getPreferences(), process, step);
 
         // clear metadata file, remove existing structure elements
-
-        List<DocStruct> children = new ArrayList<>(logical.getAllChildren());
-        if (children != null) {
-            for (DocStruct child : children) {
-                List<Reference> refs = new ArrayList<>(child.getAllToReferences());
-                for (ugh.dl.Reference ref : refs) {
-                    child.removeReferenceTo(ref.getTarget());
+        if (logical.getAllChildren() != null) {
+            List<DocStruct> children = new ArrayList<>(logical.getAllChildren());
+            if (children != null) {
+                for (DocStruct child : children) {
+                    List<Reference> refs = new ArrayList<>(child.getAllToReferences());
+                    for (ugh.dl.Reference ref : refs) {
+                        child.removeReferenceTo(ref.getTarget());
+                    }
+                    logical.removeChild(child);
                 }
-
-                logical.removeChild(child);
             }
         }
         if (physical.getAllChildren() == null) {
@@ -310,7 +317,14 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                     // if it is smaller, go upwards to find the right parent element, insert as last
 
                     // TODO get opac record for identifier
-                    // copy metadata to the new docstruct
+                    if (StringUtils.isNotBlank(identifier) && StringUtils.isNotBlank(opacName)) {
+                        // load configured opac
+
+                        // execute search request
+
+                        // copy metadata from response to the new docstruct
+
+                    }
 
                     // assign pages
                     List<DocStruct> pagesToAssign = pages.subList(startPageNo - 1, endPageNo);

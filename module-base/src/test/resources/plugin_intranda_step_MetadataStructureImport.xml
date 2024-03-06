@@ -14,9 +14,7 @@
         
         <!-- Can be an absolute path or composed with variables  -->
         <excelFolder>{processpath}</excelFolder>
-
-        <!-- define if a catalogue shall get requested to import metadata -->
-        <useOpac>true</useOpac>
+        
         <!-- which catalogue to use (as default) -->
         <opacName>Kalliope</opacName>
         <!-- which catalogue to use per record; if missing the default will be used -->
