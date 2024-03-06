@@ -51,7 +51,9 @@ import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.StorageProvider;
 import de.sub.goobi.helper.VariableReplacer;
+import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.SwapException;
+import de.sub.goobi.metadaten.MetadatenImagesHelper;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
@@ -61,7 +63,9 @@ import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
 import ugh.dl.MetadataType;
 import ugh.dl.Prefs;
+import ugh.dl.Reference;
 import ugh.exceptions.PreferencesException;
+import ugh.exceptions.TypeNotAllowedForParentException;
 import ugh.exceptions.UGHException;
 import ugh.exceptions.WriteException;
 
@@ -154,15 +158,24 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
 
         // clear metadata file, remove existing structure elements
 
-        List<DocStruct> children = logical.getAllChildren();
+        List<DocStruct> children = new ArrayList<>(logical.getAllChildren());
         if (children != null) {
             for (DocStruct child : children) {
+                List<Reference> refs = new ArrayList<>(child.getAllToReferences());
+                for (ugh.dl.Reference ref : refs) {
+                    child.removeReferenceTo(ref.getTarget());
+                }
+
                 logical.removeChild(child);
             }
         }
-
-        // TODO if physical is empty, generate pagination
         if (physical.getAllChildren() == null) {
+            MetadatenImagesHelper imagehelper = new MetadatenImagesHelper(prefs, digDoc);
+            try {
+                imagehelper.createPagination(process, process.getImagesTifDirectory(true));
+            } catch (TypeNotAllowedForParentException | IOException | SwapException | DAOException e) {
+                log.error(e);
+            }
 
         }
 
@@ -184,6 +197,7 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
             // excel file not found, abort
             return PluginReturnValue.ERROR;
         }
+        List<DocStruct> pages = physical.getAllChildren();
 
         Map<String, Integer> headerOrder = new HashMap<>();
 
@@ -226,9 +240,7 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                         case STRING:
                             value = cell.getStringCellValue();
                             break;
-                        case ERROR:
-                        case BLANK:
-                        case _NONE:
+                        case ERROR, BLANK, _NONE:
                         default:
                             value = "";
                             break;
@@ -298,8 +310,14 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                     // if it is smaller, go upwards to find the right parent element, insert as last
 
                     // TODO get opac record for identifier
-
                     // copy metadata to the new docstruct
+
+                    // assign pages
+                    List<DocStruct> pagesToAssign = pages.subList(startPageNo - 1, endPageNo);
+
+                    for (DocStruct page : pagesToAssign) {
+                        currentDocStruct.addReferenceTo(page, "logical_physical");
+                    }
 
                     // get additional metadata from excel document
                     for (Column col : columns) {
