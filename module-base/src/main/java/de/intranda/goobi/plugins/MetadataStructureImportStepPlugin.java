@@ -58,6 +58,8 @@ import net.xeoh.plugins.base.annotations.PluginImplementation;
 import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
+import ugh.dl.Metadata;
+import ugh.dl.MetadataType;
 import ugh.dl.Prefs;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.UGHException;
@@ -293,19 +295,30 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
 
                     lastElement = currentDocStruct;
                     lastHierarchy = hierarchy;
-                }
-                // if it is smaller, go upwards to find the right parent element, insert as last
+                    // if it is smaller, go upwards to find the right parent element, insert as last
 
-                // TODO get opac record for identifier
+                    // TODO get opac record for identifier
 
-                // copy metadata to the new docstruct
+                    // copy metadata to the new docstruct
 
-                // TODO get additional metadata from excel document
-                // overwrite/insert new metadata
-                for (Column col : columns) {
-                    int colId = headerOrder.get(col.getColumnName());
-                    String colVal = getCellValue(row, colId);
-                    System.out.println(col.getColumnName() + ": " + colVal);
+                    // get additional metadata from excel document
+                    for (Column col : columns) {
+                        int colId = headerOrder.get(col.getColumnName());
+                        String colVal = getCellValue(row, colId);
+
+                        // overwrite/insert new metadata
+                        MetadataType metadataType = prefs.getMetadataTypeByName(col.getMetadataName());
+
+                        List<? extends Metadata> metadataList = currentDocStruct.getAllMetadataByType(metadataType);
+                        if (!metadataList.isEmpty()) {
+                            Metadata metadata = metadataList.get(0);
+                            metadata.setValue(colVal);
+                        } else {
+                            Metadata metadata = new Metadata(metadataType);
+                            metadata.setValue(colVal);
+                            currentDocStruct.addMetadata(metadata);
+                        }
+                    }
                 }
             }
 

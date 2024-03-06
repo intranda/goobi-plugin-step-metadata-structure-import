@@ -19,11 +19,21 @@
     </repository>
   </repositories>
   <dependencies>
+      <dependency>
+      <groupId>de.intranda.ugh</groupId>
+      <artifactId>ugh-core</artifactId>
+      <version>5.0.20-SNAPSHOT</version>
+    </dependency>  
     <dependency>
       <groupId>io.goobi.workflow</groupId>
       <artifactId>workflow-core</artifactId>
       <version>${project.version}</version>
       <classifier>classes</classifier>
     </dependency>
+  
+  
+    
+    
+    
   </dependencies>
 </project>

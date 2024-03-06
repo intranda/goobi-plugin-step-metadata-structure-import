@@ -38,7 +38,7 @@
         
         <!-- additional metadata columns -->
         <column columnName="Haupttitel" type="metadata" metadata="TitleDocMain" />
-        <column columnName="Kalliope-ID" type="metadata" metadata="CatalogIDDigital" />
+        <column columnName="Kalliope-ID" type="metadata" metadata="CatalogIDKalliope" />
 
 
         <docstruct label="Handschrift" value="Monograph"/>

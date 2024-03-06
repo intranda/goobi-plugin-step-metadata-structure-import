@@ -91,8 +91,10 @@ public class MetadataStructureImportPluginTest {
     public void testRun() throws IOException {
         MetadataStructureImportStepPlugin plugin = new MetadataStructureImportStepPlugin();
         plugin.initialize(step, "something");
-        assertEquals(PluginReturnValue.FINISH, plugin.run());
+        PluginReturnValue val = plugin.run();
+        assertEquals(PluginReturnValue.FINISH, val);
         // TODO open meta.xml, check structure
+        
     }
 
     @Before
