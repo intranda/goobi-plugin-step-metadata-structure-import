@@ -265,7 +265,9 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                         case STRING:
                             value = cell.getStringCellValue();
                             break;
-                        case ERROR, BLANK, _NONE:
+                        case ERROR:
+                        case BLANK:
+                        case _NONE:
                         default:
                             value = "";
                             break;
