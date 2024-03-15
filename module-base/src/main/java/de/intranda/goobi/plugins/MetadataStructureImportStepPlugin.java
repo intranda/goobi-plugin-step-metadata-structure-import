@@ -1,7 +1,6 @@
 package de.intranda.goobi.plugins;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -227,8 +226,7 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
 
         // open excel file
         Map<String, Integer> headerOrder = new HashMap<>();
-        try (InputStream fileInputStream = StorageProvider.getInstance().newInputStream(excelFile);
-                BOMInputStream in = BOMInputStream.builder()
+        try (BOMInputStream in = BOMInputStream.builder()
                         .setPath(excelFile)
                         .setByteOrderMarks(ByteOrderMark.UTF_8)
                         .setInclude(false)
