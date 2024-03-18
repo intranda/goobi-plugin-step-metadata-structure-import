@@ -151,7 +151,6 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
     @Override
     public PluginReturnValue run() {
         // open metadata file
-
         Fileformat fileformat = null;
         DigitalDocument digDoc = null;
         try {
@@ -167,6 +166,25 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
         DocStruct physical = digDoc.getPhysicalDocStruct();
 
         VariableReplacer replacer = new VariableReplacer(digDoc, process.getRegelsatz().getPreferences(), process, step);
+
+        // find excel file in configured folder
+        Path excelFile = null;
+        Path path = Paths.get(replacer.replace(excelFolder));
+        if (!StorageProvider.getInstance().isDirectory(path)) {
+            // excel folder not found, abort
+            return PluginReturnValue.ERROR;
+        }
+
+        List<Path> dataInFolder = StorageProvider.getInstance().listFiles(path.toString());
+        for (Path p : dataInFolder) {
+            if (p.getFileName().toString().endsWith("xlsx")) {
+                excelFile = p;
+            }
+        }
+        if (excelFile == null) {
+            // excel file not found, abort
+            return PluginReturnValue.ERROR;
+        }
 
         // clear metadata file, remove existing structure elements
         if (logical.getAllChildren() != null) {
@@ -205,32 +223,13 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
             }
         }
 
-        // find excel file in configured folder
-        Path excelFile = null;
-        Path path = Paths.get(replacer.replace(excelFolder));
-        if (!StorageProvider.getInstance().isDirectory(path)) {
-            // excel folder not found, abort
-            return PluginReturnValue.ERROR;
-        }
-
-        List<Path> dataInFolder = StorageProvider.getInstance().listFiles(path.toString());
-        for (Path p : dataInFolder) {
-            if (p.getFileName().toString().endsWith("xlsx")) {
-                excelFile = p;
-            }
-        }
-        if (excelFile == null) {
-            // excel file not found, abort
-            return PluginReturnValue.ERROR;
-        }
-
         // open excel file
         Map<String, Integer> headerOrder = new HashMap<>();
         try (BOMInputStream in = BOMInputStream.builder()
-                        .setPath(excelFile)
-                        .setByteOrderMarks(ByteOrderMark.UTF_8)
-                        .setInclude(false)
-                        .get();
+                .setPath(excelFile)
+                .setByteOrderMarks(ByteOrderMark.UTF_8)
+                .setInclude(false)
+                .get();
                 Workbook wb = WorkbookFactory.create(in)) {
             Sheet sheet = wb.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.rowIterator();
