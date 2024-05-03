@@ -1,7 +1,6 @@
 package de.intranda.goobi.plugins;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -34,6 +33,7 @@ import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
 import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.input.BOMInputStream;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
@@ -46,19 +46,34 @@ import org.goobi.production.enums.PluginGuiType;
 import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.enums.StepReturnValue;
+import org.goobi.production.plugin.interfaces.IOpacPlugin;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
 
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.StorageProvider;
 import de.sub.goobi.helper.VariableReplacer;
+import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.SwapException;
+import de.sub.goobi.metadaten.MetadatenImagesHelper;
+import de.unigoettingen.sub.search.opac.ConfigOpac;
+import de.unigoettingen.sub.search.opac.ConfigOpacCatalogue;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.dl.Corporate;
 import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
 import ugh.dl.Fileformat;
+import ugh.dl.Metadata;
+import ugh.dl.MetadataType;
+import ugh.dl.Person;
+import ugh.dl.Prefs;
+import ugh.dl.Reference;
+import ugh.exceptions.MetadataTypeNotAllowedException;
+import ugh.exceptions.PreferencesException;
+import ugh.exceptions.TypeNotAllowedForParentException;
 import ugh.exceptions.UGHException;
+import ugh.exceptions.WriteException;
 
 @PluginImplementation
 @Log4j2
@@ -73,6 +88,8 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
 
     private Process process;
 
+    private Prefs prefs;
+
     private String excelFolder;
 
     private int headerRowNumber;
@@ -86,10 +103,17 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
     private String imageStartColumnName;
     private String imageEndColumnName;
 
+    private String opacName;
+    private String opacSearchField;
+
+    private Map<String, String> docstructs;
+
     @Override
     public void initialize(Step step, String returnPath) {
         this.step = step;
         process = step.getProzess();
+        prefs = process.getRegelsatz().getPreferences();
+
         // load configuration
         SubnodeConfiguration config = ConfigPlugins.getProjectAndStepConfig(title, step);
 
@@ -108,17 +132,25 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
             columns.add(col);
         }
 
+        docstructs = new HashMap<>();
+        hcl = config.configurationsAt("/docstruct");
+        for (HierarchicalConfiguration hc : hcl) {
+            docstructs.put(hc.getString("@label"), hc.getString("@value"));
+        }
+
         identifierColumnName = config.getString("/identifierColumnName");
         doctypeColumnName = config.getString("/doctypeColumnName");
         hierarchyColumnName = config.getString("/hierarchyColumnName");
         imageStartColumnName = config.getString("/imageStartColumnName");
         imageEndColumnName = config.getString("/imageEndColumnName");
+
+        opacName = config.getString("/opacName");
+        opacSearchField = config.getString("/searchField");
     }
 
     @Override
     public PluginReturnValue run() {
         // open metadata file
-
         Fileformat fileformat = null;
         DigitalDocument digDoc = null;
         try {
@@ -134,20 +166,6 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
         DocStruct physical = digDoc.getPhysicalDocStruct();
 
         VariableReplacer replacer = new VariableReplacer(digDoc, process.getRegelsatz().getPreferences(), process, step);
-
-        // clear metadata file, remove existing structure elements
-
-        List<DocStruct> children = logical.getAllChildren();
-        if (children != null) {
-            for (DocStruct child : children) {
-                logical.removeChild(child);
-            }
-        }
-
-        // TODO if physical is empty, generate pagination
-        if (physical.getAllChildren() == null) {
-
-        }
 
         // find excel file in configured folder
         Path excelFile = null;
@@ -168,15 +186,50 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
             return PluginReturnValue.ERROR;
         }
 
-        Map<String, Integer> headerOrder = new HashMap<>();
+        // clear metadata file, remove existing structure elements
+        if (logical.getAllChildren() != null) {
+            List<DocStruct> children = new ArrayList<>(logical.getAllChildren());
+            if (children != null) {
+                for (DocStruct child : children) {
+                    List<Reference> refs = new ArrayList<>(child.getAllToReferences());
+                    for (ugh.dl.Reference ref : refs) {
+                        child.removeReferenceTo(ref.getTarget());
+                    }
+                    logical.removeChild(child);
+                }
+            }
+        }
+
+        // create pagination, if missing
+        if (physical.getAllChildren() == null) {
+            MetadatenImagesHelper imagehelper = new MetadatenImagesHelper(prefs, digDoc);
+            try {
+                imagehelper.createPagination(process, process.getImagesTifDirectory(true));
+            } catch (TypeNotAllowedForParentException | IOException | SwapException | DAOException e) {
+                log.error(e);
+            }
+        }
+        List<DocStruct> pages = physical.getAllChildren();
+
+        // load configured opac catalogue
+        IOpacPlugin myImportOpac = null;
+        ConfigOpacCatalogue coc = null;
+        if (StringUtils.isNotBlank(opacName)) {
+            for (ConfigOpacCatalogue configOpacCatalogue : ConfigOpac.getInstance().getAllCatalogues("")) {
+                if (configOpacCatalogue.getTitle().equals(opacName)) {
+                    myImportOpac = configOpacCatalogue.getOpacPlugin();
+                    coc = configOpacCatalogue;
+                }
+            }
+        }
 
         // open excel file
-        try (InputStream fileInputStream = StorageProvider.getInstance().newInputStream(excelFile);
-                BOMInputStream in = BOMInputStream.builder()
-                        .setPath(excelFile)
-                        .setByteOrderMarks(ByteOrderMark.UTF_8)
-                        .setInclude(false)
-                        .get();
+        Map<String, Integer> headerOrder = new HashMap<>();
+        try (BOMInputStream in = BOMInputStream.builder()
+                .setPath(excelFile)
+                .setByteOrderMarks(ByteOrderMark.UTF_8)
+                .setInclude(false)
+                .get();
                 Workbook wb = WorkbookFactory.create(in)) {
             Sheet sheet = wb.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.rowIterator();
@@ -190,7 +243,7 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                 rowCounter++;
             }
 
-            //  read and validate the header row
+            //  read the header row
             int numberOfCells = headerRow.getLastCellNum();
             for (int i = 0; i < numberOfCells; i++) {
                 Cell cell = headerRow.getCell(i);
@@ -220,7 +273,7 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                 }
             }
 
-            // find out the first data row
+            // find the first data row
             while (rowCounter < dataRowNumber - 1) {
                 headerRow = rowIterator.next();
                 rowCounter++;
@@ -249,43 +302,139 @@ public class MetadataStructureImportStepPlugin implements IStepPluginVersion2 {
                 }
 
                 String docType = getCellValue(row, headerOrder.get(doctypeColumnName));
+                int hierarchy = Integer.parseInt(getCellValue(row, headerOrder.get(hierarchyColumnName)));
 
                 String identifier = getCellValue(row, headerOrder.get(identifierColumnName));
 
-                int hierarchy = Integer.parseInt(getCellValue(row, headerOrder.get(hierarchyColumnName)));
+                int startPageNo = Integer.parseInt(getCellValue(row, headerOrder.get(imageStartColumnName)));
+                int endPageNo = Integer.parseInt(getCellValue(row, headerOrder.get(imageEndColumnName)));
 
-                DocStruct currentType = null;
+                DocStruct currentDocStruct = digDoc.createDocStruct(prefs.getDocStrctTypeByName(docstructs.get(docType)));
 
-                // TODO find correct position
-                // if current element hierarchy is higher than last element, its a child element
-                // if it has the same number, its a sibling
-                // if it is smaller, go upwards to find the right parent element, insert as last
+                // skip first element as it is the publication type itself
+                if (hierarchy != 0) {
 
-                // TODO get opac record for identifier
+                    // if current element hierarchy is higher than last element, its a child element of the last element
+                    if (hierarchy > lastHierarchy) {
+                        lastElement.addChild(currentDocStruct);
+                    }
+                    // if it has the same number, its a sibling, add it as child element of the parent
+                    else if (hierarchy == lastHierarchy) {
+                        lastElement.getParent().addChild(currentDocStruct);
+                    } else {
+                        // if it is smaller, go upwards to find the right parent element, insert as last
+                        while (hierarchy < lastHierarchy) {
+                            lastElement = lastElement.getParent();
+                            lastHierarchy--;
+                        }
+                        lastElement.getParent().addChild(currentDocStruct);
+                    }
 
-                // copy metadata to the new docstruct
+                    lastElement = currentDocStruct;
+                    lastHierarchy = hierarchy;
 
-                // TODO get additional metadata from excel document
-                // overwrite/insert new metadata
-                for (Column col : columns) {
-                    int colId = headerOrder.get(col.getColumnName());
-                    String colVal = getCellValue(row, colId);
+                    //  get opac record for identifier
 
+                    if (StringUtils.isNotBlank(identifier) && coc != null && myImportOpac != null) {
+                        getOpacRequest(currentDocStruct, myImportOpac, coc, identifier);
+                    }
+
+                    // copy metadata from response to the new docstruct
+
+                    // assign pages
+                    List<DocStruct> pagesToAssign = pages.subList(startPageNo - 1, endPageNo);
+
+                    for (DocStruct page : pagesToAssign) {
+                        currentDocStruct.addReferenceTo(page, "logical_physical");
+                    }
+
+                    // get additional metadata from excel document
+                    for (Column col : columns) {
+                        int colId = headerOrder.get(col.getColumnName());
+                        String colVal = getCellValue(row, colId);
+
+                        // overwrite/insert new metadata
+                        MetadataType metadataType = prefs.getMetadataTypeByName(col.getMetadataName());
+
+                        List<? extends Metadata> metadataList = currentDocStruct.getAllMetadataByType(metadataType);
+                        if (!metadataList.isEmpty()) {
+                            Metadata metadata = metadataList.get(0);
+                            metadata.setValue(colVal);
+                        } else {
+                            Metadata metadata = new Metadata(metadataType);
+                            metadata.setValue(colVal);
+                            currentDocStruct.addMetadata(metadata);
+                        }
+                    }
                 }
             }
-
-        } catch (IOException e) {
+        } catch (IOException | UGHException e) {
             log.error(e);
         }
 
-        boolean successful = true;
-        // your logic goes here
-
-        log.info("MetadataStructureImport step plugin executed");
-        if (!successful) {
-            return PluginReturnValue.ERROR;
+        try {
+            process.writeMetadataFile(fileformat);
+        } catch (WriteException | PreferencesException | IOException | SwapException e) {
+            log.error(e);
         }
+
         return PluginReturnValue.FINISH;
+    }
+
+    private void getOpacRequest(DocStruct currentDocstruct, IOpacPlugin myImportOpac, ConfigOpacCatalogue coc, String identifier)
+            throws PreferencesException {
+        Fileformat opacResponse = null;
+        try {
+            opacResponse = myImportOpac.search(opacSearchField, identifier, coc, prefs);
+        } catch (Exception e) {
+            log.error(e);
+        }
+        if (opacResponse != null) {
+            DocStruct opacLogical = opacResponse.getDigitalDocument().getLogicalDocStruct();
+            if (opacLogical.getType().isAnchor()) {
+                opacLogical = opacLogical.getAllChildren().get(0);
+            }
+            if (opacLogical.getAllMetadata() != null) {
+                for (Metadata md : opacLogical.getAllMetadata()) {
+                    try {
+                        Metadata copy = new Metadata(md.getType());
+                        copy.setValue(md.getValue());
+                        copy.setAutorityFile(md.getAuthorityID(), md.getAuthorityURI(), md.getAuthorityValue());
+                        currentDocstruct.addMetadata(copy);
+                    } catch (MetadataTypeNotAllowedException e) {
+                        log.debug(e);
+                    }
+                }
+            }
+            if (opacLogical.getAllPersons() != null) {
+                for (Person p : opacLogical.getAllPersons()) {
+                    try {
+                        Person copy = new Person(p.getType());
+                        copy.setFirstname(p.getFirstname());
+                        copy.setLastname(p.getLastname());
+                        copy.setAutorityFile(p.getAuthorityID(), p.getAuthorityURI(), p.getAuthorityValue());
+                        currentDocstruct.addPerson(copy);
+                    } catch (MetadataTypeNotAllowedException e) {
+                        log.debug(e);
+                    }
+
+                }
+            }
+            if (opacLogical.getAllCorporates() != null) {
+                for (Corporate c : opacLogical.getAllCorporates()) {
+                    try {
+                        Corporate copy = new Corporate(c.getType());
+                        copy.setMainName(c.getMainName());
+                        copy.setAutorityFile(c.getAuthorityID(), c.getAuthorityURI(), c.getAuthorityValue());
+                        currentDocstruct.addCorporate(copy);
+                    } catch (MetadataTypeNotAllowedException e) {
+                        log.debug(e);
+
+                    }
+
+                }
+            }
+        }
     }
 
     @Override
