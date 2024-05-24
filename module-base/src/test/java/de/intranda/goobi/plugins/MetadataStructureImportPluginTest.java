@@ -40,13 +40,14 @@ import de.sub.goobi.helper.enums.StepStatus;
 import de.sub.goobi.metadaten.MetadatenHelper;
 import de.sub.goobi.persistence.managers.MetadataManager;
 import de.sub.goobi.persistence.managers.ProcessManager;
+import de.unigoettingen.sub.search.opac.ConfigOpac;
 import ugh.dl.Fileformat;
 import ugh.dl.Prefs;
 import ugh.fileformats.mets.MetsMods;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ MetadatenHelper.class, VariableReplacer.class, ConfigurationHelper.class, ProcessManager.class,
-        MetadataManager.class })
+        MetadataManager.class, ConfigOpac.class })
 @PowerMockIgnore({ "javax.management.*", "javax.xml.*", "org.xml.*", "org.w3c.*", "javax.net.ssl.*", "jdk.internal.reflect.*" })
 public class MetadataStructureImportPluginTest {
 
@@ -91,7 +92,10 @@ public class MetadataStructureImportPluginTest {
     public void testRun() throws IOException {
         MetadataStructureImportStepPlugin plugin = new MetadataStructureImportStepPlugin();
         plugin.initialize(step, "something");
-        assertEquals(PluginReturnValue.FINISH, plugin.run());
+        PluginReturnValue val = plugin.run();
+        assertEquals(PluginReturnValue.FINISH, val);
+        // TODO open meta.xml, check structure
+
     }
 
     @Before
@@ -107,6 +111,13 @@ public class MetadataStructureImportPluginTest {
         Path excelSource = Paths.get(resourcesFolder, "20231002_ImportStrukturdatenBsp.xlsx");
         Path excelTarget = Paths.get(processDirectory.getAbsolutePath(), "20231002_ImportStrukturdatenBsp.xlsx");
         Files.copy(excelSource, excelTarget);
+
+        PowerMock.mockStatic(ConfigOpac.class);
+        ConfigOpac configOpac = EasyMock.createMock(ConfigOpac.class);
+        EasyMock.expect(ConfigOpac.getInstance()).andReturn(configOpac).anyTimes();
+        EasyMock.expect(configOpac.getAllCatalogues(EasyMock.anyString())).andReturn(Collections.emptyList()).anyTimes();
+
+        EasyMock.replay(configOpac);
 
         PowerMock.mockStatic(ConfigurationHelper.class);
         ConfigurationHelper configurationHelper = EasyMock.createMock(ConfigurationHelper.class);
@@ -139,11 +150,8 @@ public class MetadataStructureImportPluginTest {
                                 } else {
                                     return searchString;
                                 }
-
                             }
-                        }
-
-                )
+                        })
                 .anyTimes();
 
         EasyMock.expect(VariableReplacer.findRegexMatches(EasyMock.anyString(), EasyMock.anyString()))
@@ -183,13 +191,10 @@ public class MetadataStructureImportPluginTest {
         MetadataManager.updateJSONMetadata(1, Collections.emptyMap());
         PowerMock.replay(MetadataManager.class);
         PowerMock.replay(ConfigurationHelper.class);
+        PowerMock.replay(ConfigOpac.class);
+        process = getProcess();
 
-        process =
-
-                getProcess();
-
-        Ruleset ruleset = PowerMock.createMock(
-                Ruleset.class);
+        Ruleset ruleset = PowerMock.createMock(Ruleset.class);
         ruleset.setTitel("ruleset");
         ruleset.setDatei("ruleset.xml");
         EasyMock.expect(ruleset.getDatei()).andReturn("ruleset.xml").anyTimes();
@@ -242,6 +247,5 @@ public class MetadataStructureImportPluginTest {
         File mediaDirectory = new File(imageDirectory.getAbsolutePath(), "00469418X_media");
         mediaDirectory.mkdir();
 
-        // TODO add some file
     }
 }

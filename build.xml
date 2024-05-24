@@ -9,7 +9,7 @@
 			<arg value="package"/>
 	         <arg value="-Dmaven.test.skip=true" />
 		</exec>
-		<copy file="module-main/target/plugin_intranda_step_${name}.jar" todir="/opt/digiverso/goobi/plugins/step/" overwrite="true"/>
+		<copy file="module-base/target/plugin-step-MetadataStructureImport-base-24.03-SNAPSHOT.jar" todir="/opt/digiverso/goobi/plugins/step/" overwrite="true"/>
 	</target>
 
 </project>
