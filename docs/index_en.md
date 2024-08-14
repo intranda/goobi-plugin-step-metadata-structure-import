@@ -31,6 +31,7 @@ Once the preparations have been completed, the Excel file is now processed line 
 - If the hierarchy number is `greater` than that of the previous line, it is a child element of the previous element. A hierarchy level is then created below the last element.
 - If the hierarchy number is `lower` than that of the previous element, the previous element is searched for parent elements until one with the same number is found. The new element is then created as a sibling element of the parent element found.
 
+![Selection of the plugin for performing the step](screen1_en.png)
 
 ## Configuration
 The configuration takes place in the `plugin_intranda_step_MetadataStructureImport.xml` file:

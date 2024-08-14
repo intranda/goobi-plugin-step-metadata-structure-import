@@ -39,6 +39,7 @@ Anschließend werden dem neuen Strukturelement alle Seiten zugewiesen, die zwisc
 
 Als letztes werden die zusätzlich konfigurierten Metadaten übernommen. Dabei werden vorhandene Metadaten mit den Werten der Exceldatei überschrieben, falls sie bereits durch eine OPAC Anfrage importiert wurden.
 
+![Auswahl des Plugins zur Durchführung des Arbeitsschrittes](screen1_de.png)
 
 ## Konfiguration
 Die Konfiguration erfolgt in der Datei `plugin_intranda_step_MetadataStructureImport.xml`:
