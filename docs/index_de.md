@@ -20,6 +20,10 @@ Im Workflow muss ein neuer Arbeitsschritt eingefügt werden. Dieser Schritt soll
 
 
 ## Überblick und Funktionsweise
+Nach der erfolgreichen Installation, wird das Plugin wie im folgenden Screenshot innerhalb des Workflows integriert.
+
+![Auswahl des Plugins zur Durchführung des Arbeitsschrittes](screen1_de.png)
+
 Wenn das Plugin ausgeführt wird, sucht es zuerst am konfigurierten Ort nach einer Exceldatei. Die Exceldatei kann dabei einen beliebigen Namen haben, muss jedoch die Endung `xlsx` aufweisen.
 
 Wenn eine Exceldatei existiert, wird im Anschluß die METS-Datei des Vorgangs geöffnet. Sofern noch keine Paginierung vorhanden ist, wird diese automatisch erstellt. Falls die Datei Strukturdaten enthält, werden diese nun entfernt. Dadurch ist es möglich, das Plugin auch mehrfach mit aktualisierten Exceldateien aufzurufen.
@@ -38,8 +42,6 @@ Sofern die Identifier-Spalte einen Wert enthält, erfolgt nun eine OPAC-Abfrage.
 Anschließend werden dem neuen Strukturelement alle Seiten zugewiesen, die zwischen der Startseite und der letzten Seite der Excelzeile liegen.
 
 Als letztes werden die zusätzlich konfigurierten Metadaten übernommen. Dabei werden vorhandene Metadaten mit den Werten der Exceldatei überschrieben, falls sie bereits durch eine OPAC Anfrage importiert wurden.
-
-![Auswahl des Plugins zur Durchführung des Arbeitsschrittes](screen1_de.png)
 
 ## Konfiguration
 Die Konfiguration erfolgt in der Datei `plugin_intranda_step_MetadataStructureImport.xml`:
