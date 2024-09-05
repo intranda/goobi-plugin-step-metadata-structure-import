@@ -10,13 +10,13 @@ This is a plugin for Goobi workflow, the open source workflow tracking software 
 
 More information about the functionality of this plugin and the complete documentation can be found in the central documentation area at https://docs.goobi.io
 
-Detail                      | Description 
+Detail                      | Description
 --------------------------- | ----------------------
 **Plugin identifier**       | intranda_step_MetadataStructureImport
 **Plugin type**             | step
 **Licence**                 | GPL 2.0 or newer
-**Documentation (German)**  | https://docs.goobi.io/workflow-plugins/v/eng/step/goobi-plugin-step-metadata-structure-import
-**Documentation (English)** | https://docs.goobi.io/workflow-plugins/v/ger/step/goobi-plugin-step-metadata-structure-import
+**Documentation (German)**  | https://docs.goobi.io/workflow-plugins/v/ger/step/goobi-plugin-step-metadata-structure-import
+**Documentation (English)** | https://docs.goobi.io/workflow-plugins/v/eng/step/goobi-plugin-step-metadata-structure-import
 
 ## Goobi details
 
