@@ -3,6 +3,10 @@ title: Strukturdatenimport aus einer Exceldatei
 identifier: intranda_step_MetadataStructureImport
 published: true
 description: Dies ist eine technische Dokumentation für den Import von Strukturdaten aus einer Exceldatei.
+keywords:
+    - Goobi workflow
+    - Plugin
+    - Step Plugin
 ---
 ## Einführung
 Die vorliegende Dokumentation beschreibt die Installation, Konfiguration und den Einsatz des Plugins zum Import von Strukturdaten aus einer Exceldatei.
