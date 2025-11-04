@@ -3,6 +3,10 @@ title: Structure data import from an Excel file
 identifier: intranda_step_MetadataStructureImport
 published: true
 description: This is a technical documentation for the import of structure data from an Excel file.
+keywords:
+    - Goobi workflow
+    - Plugin
+    - Step Plugin
 ---
 ## Introduction
 This is a technical documentation for the import of structure data from an Excel file.
