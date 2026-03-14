@@ -34,9 +34,9 @@ Wenn eine Exceldatei existiert, wird im Anschluß die METS-Datei des Vorgangs ge
 
 Nachdem die Vorbereitungen abgeschlossen sind, wird nun die Exceldatei zeilenweise abgearbeitet. Als erstes wird geprüft, welche Hierarchiestufe in der Zeile eingetragen ist. Dabei gibt es vier Optionen: 
 
-- Bei `0` wird die Zeile übersprungen, da es sich dabei um die Informationen zum Publikationstyp selbt handelt. Diese Daten wurden bereits durch den regulären Import erstellt und sind daher hier nicht von Belang.
+- Bei `0` wird die Zeile übersprungen, da es sich dabei um die Informationen zum Publikationstyp selbst handelt. Diese Daten wurden bereits durch den regulären Import erstellt und sind daher hier nicht von Belang.
 - Ist die Hierarchienummer der aktuellen Zeile `genauso groß`, wie die der vorherigen Zeile, handelt es sich um ein Geschwisterelement des letzten Elements. Es wird dann als letztes Kindelement des Elternelements des vorherigen Elements erstellt.
-- Ist die Hierarchienummer `größer` als die der vorherigen Zeile, handelt es sich um ein Kindelement des vorheringe Elements. Es wird dann eine Hierarchiestufe unterhalb des letzten Elements erstellt.
+- Ist die Hierarchienummer `größer` als die der vorherigen Zeile, handelt es sich um ein Kindelement des vorherigen Elements. Es wird dann eine Hierarchiestufe unterhalb des letzten Elements erstellt.
 - Ist die Hierarchienummer `kleiner` als die des vorherigen Elements, wird das vorherige Element so lange nach Elternelementen durchsucht, bis eines mit gleicher Nummer gefunden wird. Das neue Element wird dann als Geschwisterelement des gefundenen Elternelements erstellt.
 
 Der Typ des neuen Elements wird anhand des Mappings zwischen dem konfigurierten Strukturelement in der Exceldatei und dem Regelsatz-Namen ermittelt.
@@ -83,7 +83,7 @@ Die Unterelemente `<project>` und `<step>` werden zur Prüfung genutzt, ob der v
         <rowDataEnd></rowDataEnd>        
 ```
 
-Hier werden grundlegende Dinge konfigureriert. Zum einen mittels `<excelFolder>` der Ort, an dem die Exceldatei zu finden ist. Hier kann ein absoluter Pfad angegeben oder mit dem Goobi-Variablen-System gearbeitet werden.
+Hier werden grundlegende Dinge konfiguriert. Zum einen mittels `<excelFolder>` der Ort, an dem die Exceldatei zu finden ist. Hier kann ein absoluter Pfad angegeben oder mit dem Goobi-Variablen-System gearbeitet werden.
 
 Anschließend wird die Exceldatei beschrieben. In `<rowHeader>` wird die Zeile definiert, in der die Spaltenüberschriften stehen. Üblicherweise ist dies `1` für die erste Zeile. `<rowDataStart>` und `<rowDataEnd>` definieren den Bereich, in dem sich die zu importierenden Daten befinden. `<rowDataEnd>` kann genutzt werden, um zum Beispiel nur einige wenige Zeilen testweise zu importieren. Wenn immer alles importiert werden soll, kann der Wert leer bleiben.
 
@@ -96,7 +96,7 @@ Anschließend wird die Exceldatei beschrieben. In `<rowHeader>` wird die Zeile d
 
 Hier wird die optionale OPAC-Abfrage konfiguriert. `<identifierColumnName>` enthält dabei den Spaltentitel, in der die zu verwendenden Identifier stehen. `<opacName>` und `<searchField>` müssen mit einem konfigurierten OPAC in der Datei `goobi_opac.xml` übereinstimmen.
 
-Fehlen diese Werte oder zeigen nicht auf einen konfigurierten Katalog, findet der Import ohne OAPC-Abfrage statt.
+Fehlen diese Werte oder zeigen nicht auf einen konfigurierten Katalog, findet der Import ohne OPAC-Abfrage statt.
 
 ```xml
         <!-- static columns -->

@@ -85,7 +85,7 @@ The Excel file is then described. In `<rowHeader>` the line in which the column 
 ```
 The optional OPAC query is configured here. `<identifierColumnName>` contains the column title in which the identifiers to be used are located. `<opacName>` and `<searchField>` must match a configured OPAC in the goobi_opac.xml file.
 
-If these values are missing or do not point to a configured catalogue, the import takes place without an OAPC query.
+If these values are missing or do not point to a configured catalogue, the import takes place without an OPAC query.
 
 ```xml
         <!-- static columns -->
